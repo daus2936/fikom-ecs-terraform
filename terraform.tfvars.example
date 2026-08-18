@@ -1,0 +1,65 @@
+# ============================================================
+# terraform.tfvars — FIKOM production
+# ============================================================
+# Nilai di bawah sudah diisi sesuai lingkungan Anda.
+# Yang WAJIB dicek ulang sebelum apply ditandai dengan "→ CEK".
+#
+# JANGAN commit file ini ke Git (masukkan ke .gitignore).
+# Password database TIDAK ada di sini — nilainya di-set langsung ke
+# Secrets Manager lewat AWS CLI supaya tidak masuk terraform.tfstate.
+# ============================================================
+
+# ---------- Region & identitas ----------
+region            = "ap-southeast-1"
+availability_zone = "ap-southeast-1a"
+project           = "fikom"
+environment       = "production"
+
+# ---------- Penamaan resource ----------
+# project = "fikom" menghasilkan: fikom-cluster, fikom-service,
+# fikom-backend (task family), fikom-alb, fikom-tg, fikom-alb-sg,
+# fikom-task-sg, fikom-ecs-task-role, fikom-ecs-execution-role,
+# /ecs/fikom-backend, fikom/DATABASE_PASSWORD, fikom/JWT_SECRET,
+# dan subnet ber-tag fikom-private.
+ecr_repo_name  = "fikomecs"
+container_name = "fikomecs"   # HARUS sama dgn CONTAINER_NAME di pipeline CI/CD
+
+# ---------- Bucket S3 ----------
+# → CEK: nama bucket S3 unik GLOBAL. Kalau bekas bucket lama belum
+#   sepenuhnya terhapus, apply akan gagal (lihat panduan bagian 2).
+uploads_bucket  = "fikom-uploads"    # foto bukti saldo (privat, presigned URL)
+frontend_bucket = "fikom-frontend"   # hosting SPA (privat, dibaca CloudFront via OAC)
+
+# ---------- Domain ----------
+api_domain      = "apiecs.fikom.net"  # ALB   — sertifikat ACM ap-southeast-1
+frontend_domain = "ecs.fikom.net"     # CloudFront — sertifikat ACM us-east-1
+
+# ---------- Database (server sendiri, DI LUAR AWS) ----------
+db_host     = "202.147.2.18"
+db_port     = "5432"
+db_name     = "asaldb"
+db_username = "asaladmin"   # kode membaca DATABASE_USERNAME, bukan DATABASE_USER
+
+# SSL ke database. Saat ini "false" agar sama dengan perilaku sekarang.
+# → Disarankan "true" setelah SSL diaktifkan di PostgreSQL: koneksi ke
+#   202.147.2.18 melintasi internet publik tanpa enkripsi.
+db_ssl = "false"
+
+# ---------- Aplikasi ----------
+container_port = 4000
+task_cpu       = "512"    # 0.5 vCPU
+task_memory    = "1024"   # 1 GB — harus kombinasi valid Fargate
+desired_count  = 1
+image_tag      = "latest" # CI/CD nanti menimpanya dengan commit SHA
+
+# ---------- Jaringan ----------
+# → CEK: pastikan TIDAK overlap dengan subnet yang sudah ada di VPC.
+#   aws ec2 describe-subnets --region ap-southeast-1 \
+#     --query 'Subnets[].{AZ:AvailabilityZone,CIDR:CidrBlock}' --output table
+private_subnet_cidr = "172.31.200.0/24"
+
+# ---------- Lain-lain ----------
+log_retention_days = 30
+jwt_expires_in     = "12h"
+bcrypt_rounds      = "12"
+signed_url_ttl     = "3600"   # masa berlaku presigned URL foto (detik)
